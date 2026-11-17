@@ -1,0 +1,14 @@
+{
+  "name": "ims-spare-parts-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vercel/oidc": "^4.0.0",
+    "google-auth-library": "^10.0.0",
+    "googleapis": "^154.0.0"
+  }
+}
