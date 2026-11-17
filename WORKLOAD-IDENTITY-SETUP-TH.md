@@ -1,5 +1,7 @@
 # คู่มือตั้ง Workload Identity Pool และ OIDC Provider บน Google Cloud แบบจับมือทำ
 
+> **คู่มือนี้เป็นเอกสารจากสถาปัตยกรรมเวอร์ชันก่อนและไม่จำเป็นสำหรับรุ่นปัจจุบัน** ตอนนี้ระบบใช้ Vercel frontend + Apps Script backend จึงไม่ต้องตั้ง Workload Identity, Service Account หรือ OIDC Provider ให้อ่าน [คู่มือ Deploy รุ่นปัจจุบัน](README-TH.md) แทน
+
 คู่มือนี้เป็นคู่มือแยกสำหรับขั้นตอนที่มักสับสนที่สุดในการเชื่อม Vercel กับ Google Cloud: สร้าง Workload Identity Pool, สร้าง OIDC Provider, จำกัดให้เฉพาะเว็บ Vercel ของเรา และผูกสิทธิ์ให้ Service Account โดย **ไม่สร้าง JSON key**
 
 ใช้กับโปรเจกต์ IMS ในโฟลเดอร์ `vercel-app` ซึ่งโค้ดใช้ `getVercelOidcToken()` และตั้งค่า audience จาก Environment Variable `GCP_AUDIENCE` อยู่แล้ว

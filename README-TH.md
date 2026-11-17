@@ -1,128 +1,138 @@
-# คู่มือเริ่มต้นใช้งาน IMS บน Vercel (ฉบับทำตามทีละขั้น)
+# คู่มือ IMS: Vercel Frontend + Google Apps Script Backend
 
-คู่มือนี้พาเปลี่ยนจาก Google Apps Script มาเป็นเว็บไซต์ที่ Vercel ให้บริการ โดยหน้าเว็บเรียก API ฝั่งเซิร์ฟเวอร์ในโฟลเดอร์ `api/` และ API ใช้ Google Sheets API อ่าน/เขียน Google Sheet ของคุณ ไม่ต้องเปิดเผยกุญแจ Google ให้ผู้ใช้เว็บเห็น
+รุ่นนี้ใช้ **Vercel สำหรับหน้าเว็บ** และ **Google Apps Script สำหรับ API กับการอ่าน/เขียน Google Sheet** จึงไม่ต้องสร้าง Google Cloud Service Account, JSON Key, Workload Identity Pool หรือ OIDC Provider
 
-ถ้าต้องการวิธีตั้งค่า Google Sheets API และสร้าง Service Account อย่างละเอียดทีละคลิก ให้อ่าน [คู่มือ Google Sheets และ Service Account](GOOGLE-SHEETS-SETUP-TH.md) เพิ่มเติม
+```text
+เบราว์เซอร์ → หน้าเว็บบน Vercel → Vercel API proxy → Apps Script Web App → Google Sheet
+```
 
-สำหรับขั้นตอนสร้าง Workload Identity Pool, OIDC Provider, Audience, Attribute condition และมอบสิทธิ์ Workload Identity User แบบละเอียดเป็นพิเศษ ให้อ่าน [คู่มือ Workload Identity แบบจับมือทำ](WORKLOAD-IDENTITY-SETUP-TH.md)
+Vercel API proxy ทำให้เบราว์เซอร์เรียก API ในโดเมนเดียวกับหน้าเว็บ แล้วส่งคำขอต่อไป Apps Script จากฝั่งเซิร์ฟเวอร์ จึงหลีกเลี่ยงปัญหา CORS จากการเรียกข้ามโดเมนโดยตรง
 
-> **สำคัญ:** ไฟล์ `Code.gs` และ `index.html` ที่อยู่โฟลเดอร์หลักยังเป็นต้นฉบับ Google Apps Script และไม่ได้ถูกลบ เวอร์ชัน Vercel อยู่ในโฟลเดอร์ `vercel-app` แยกต่างหาก
+## สิ่งที่ต้องใช้
 
-## ไฟล์ในโฟลเดอร์นี้คืออะไร
+- Google Account ที่สร้าง Google Sheet และ Google Apps Script ได้
+- GitHub Account
+- Vercel Account ที่เชื่อม GitHub
+- โฟลเดอร์ `vercel-app` และไฟล์ `Code.gs` จากโปรเจกต์นี้
 
-- `index.html` คือหน้าระบบคลังอะไหล่ที่ทำงานบนเว็บ
-- `api/ims.js` คือเซิร์ฟเวอร์ API ที่เชื่อมต่อ Google Sheets และตรวจสิทธิ์ Admin/Staff
-- `setup.html` คือหน้าสร้างชีตเริ่มต้น ใช้ครั้งเดียวเท่านั้น
-- `package.json` ระบุไลบรารี Google API ที่ Vercel ต้องติดตั้ง
-- `.env.example` แสดงชื่อตัวแปรที่ต้องตั้ง โดยไม่มีรหัสลับจริง
-- `.gitignore` กันไฟล์กุญแจและค่าลับไม่ให้เผลอส่งขึ้น GitHub
+ไม่ต้องทำสิ่งต่อไปนี้: สร้าง Google Cloud Project, เปิด Google Sheets API, สร้าง Service Account, ดาวน์โหลด JSON Key หรือสร้าง Workload Identity Pool/OIDC Provider
 
-## ก่อนเริ่ม ต้องมีอะไรบ้าง
+## ส่วนที่ 1 — สร้าง Google Sheet
 
-เตรียมบัญชี Google, บัญชี GitHub และบัญชี Vercel (ใช้ GitHub เข้าสู่ระบบ Vercel ได้) ถ้าจะทำตามวิธีในคู่มือนี้ ให้ติดตั้ง GitHub Desktop ด้วย คุณไม่จำเป็นต้องติดตั้งโปรแกรมเขียนโค้ดเพื่อ Deploy ผ่านหน้าเว็บ แต่ต้องมีโฟลเดอร์ `vercel-app` ที่สร้างไว้ให้แล้ว
+1. เปิด [Google Sheets](https://sheets.google.com) แล้วสร้างสเปรดชีตใหม่
+2. ตั้งชื่อ เช่น `IMS Spare Parts Database`
+3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Transactions` และ `Audit_Logs` ให้
 
-Google Sheets API ต้องเปิดใน Google Cloud และบัญชีบริการ (Service Account) ต้องได้รับสิทธิ์กับไฟล์ Sheet ที่ต้องการใช้ Google อธิบายว่าบัญชีบริการเข้าถึงไฟล์เฉพาะได้โดยแชร์เอกสารให้กับอีเมลของบัญชีนั้นโดยตรง [1] [2]
+## ส่วนที่ 2 — สร้าง Apps Script Backend
 
-## ขั้นที่ 1: สร้าง Google Sheet สำหรับระบบ
+1. เปิด Google Sheet ที่สร้างไว้
+2. ไปที่ **Extensions → Apps Script**
+3. ใน Apps Script editor เลือกไฟล์ `Code.gs` ที่มีอยู่ ลบโค้ดตัวอย่างเดิม แล้ววางเนื้อหาทั้งหมดจากไฟล์ `apps-script/Code.gs` ที่อยู่ในชุด Vercel นี้ (หรือใช้ไฟล์ `Code.gs` ฉบับปรับปรุงในโฟลเดอร์หลักของโปรเจกต์)
+4. กด **Save** (ไอคอนดิสก์) และตั้งชื่อโปรเจกต์ เช่น `IMS Backend`
+5. ตรวจว่าไฟล์มี `doPost(e)` อยู่ท้ายไฟล์ และมีฟังก์ชัน `updatePart(...)`
 
-1. เปิด [Google Sheets](https://sheets.google.com) แล้วกดสร้างสเปรดชีตเปล่า
-2. ตั้งชื่อเช่น `IMS Spare Parts Database`
-3. คัดลอก **Spreadsheet ID** จาก URL ของชีต URL จะมีรูปแบบ `https://docs.google.com/spreadsheets/d/ส่วนนี้คือ-ID/edit` ให้คัดลอกเฉพาะข้อความระหว่าง `/d/` กับ `/edit` เก็บไว้ก่อน
+สคริปต์นี้ผูกกับ Google Sheet โดยตรง ใช้ `SpreadsheetApp.getActiveSpreadsheet()` จึงไม่ต้องกรอก Spreadsheet ID หรือสร้าง OAuth credentials เอง
 
-ยังไม่ต้องสร้างแท็บเอง หน้า `setup.html` จะสร้างแท็บและหัวตารางให้หลังตั้งค่าการเชื่อมต่อเสร็จ
+## ส่วนที่ 3 — ตั้ง Setup Key ใน Apps Script
 
-## ขั้นที่ 2: เชื่อม Google Cloud โดยไม่ใช้ JSON Key
+Setup Key ใช้ป้องกันไม่ให้บุคคลทั่วไปสั่งสร้างแท็บ/บัญชีเริ่มต้นซ้ำได้
 
-ใช้ Workload Identity Federation (OIDC) ตาม [คู่มือตั้ง Google Sheets แบบไม่ใช้ JSON Key](GOOGLE-SHEETS-SETUP-TH.md) วิธีนี้สร้าง Service Account แต่ไม่สร้าง key แล้วให้ Vercel ขอ credential อายุสั้นผ่าน OIDC แทน Vercel ระบุว่า OIDC federation รองรับทุกแผน [1]
+1. ใน Apps Script editor คลิก **Project Settings** (ไอคอนรูปเฟืองด้านซ้าย)
+2. เลื่อนหา **Script Properties**
+3. คลิก **Add script property**
+4. ใส่ **Property:** `IMS_SETUP_KEY`
+5. ใส่ **Value:** สร้างข้อความยาวและเดายาก เช่นใช้ Password Manager สร้างค่าใหม่
+6. คลิก **Save script properties**
+7. เก็บค่านี้ไว้ชั่วคราวเพื่อกรอกในหน้า `/setup.html` ของ Vercel
 
-คู่มือแยกจะพาเปิด Google Sheets API และ IAM Service Account Credentials API, สร้าง Service Account, สร้าง Workload Identity Pool/Provider, ให้สิทธิ์เฉพาะ Vercel project/environment แล้วแชร์ชีตให้ service account เป็น Editor
+ค่านี้อยู่ใน Script Properties ฝั่ง Google Apps Script ไม่อยู่ในหน้าเว็บถาวร และห้าม Commit ลง GitHub
 
-## ขั้นที่ 3: สร้าง GitHub repository แบบส่วนตัว
+## ส่วนที่ 4 — Deploy Apps Script เป็น Web App
 
-Vercel จะเชื่อมกับ repository แล้ว Deploy เมื่อมีการส่งเวอร์ชันใหม่ขึ้น GitHub [3]
+1. ที่ Apps Script editor คลิก **Deploy → New deployment**
+2. คลิกไอคอนรูปเฟืองข้าง **Select type** แล้วเลือก **Web app**
+3. ใส่ Description เช่น `IMS API v1`
+4. ตั้ง **Execute as** เป็น **Me** (บัญชีเจ้าของสคริปต์) เพื่อให้ API อ่าน/เขียนชีตด้วยสิทธิ์ของเจ้าของ
+5. ตั้ง **Who has access** เป็น **Anyone** เพื่อให้ Vercel Function เรียก API ได้โดยไม่ต้องมี Google sign-in ของผู้ใช้แต่ละคน
+6. คลิก **Deploy**
+7. Google อาจแสดงหน้าขอสิทธิ์ ให้ตรวจชื่อสคริปต์และบัญชี แล้วอนุญาตสิทธิ์ Spreadsheet ที่สคริปต์ต้องใช้
+8. คัดลอก **Web app URL** ที่ลงท้ายด้วย `/exec` ตัวอย่าง:
 
-1. ติดตั้งและเปิด **GitHub Desktop** แล้วเข้าสู่ระบบ GitHub
-2. เลือก **File → New repository…**
-3. ตั้งชื่อ `ims-spare-parts-vercel`
-4. ตรง **Local path** เลือกโฟลเดอร์ `vercel-app` ที่อยู่ในโปรเจกต์นี้ เช่น `C:\Users\ASUS\OneDrive\Desktop\Github-Webapp\IMS - Spare Parts & Service Inventory System\vercel-app`
-5. ตั้ง repository เป็น **Private** หากมีตัวเลือกนี้ แล้วกด **Create repository**
-6. GitHub Desktop จะแสดงไฟล์ที่เพิ่มเข้ามา ใส่ข้อความในช่อง Summary เช่น `Create Vercel IMS app` แล้วกด **Commit to main**
-7. กด **Publish repository** และตรวจอีกครั้งว่าเป็น **Private**
+   ```text
+   https://script.google.com/macros/s/AKfycb...ตัวระบุการDeploy.../exec
+   ```
 
-**ตรวจให้แน่ใจ:** อย่า Commit ไฟล์ `.env` หรือ JSON key หากเคยสร้างไว้ก่อนหน้า ลบไฟล์จาก working directory และ Git history ตามความจำเป็น; วิธี OIDC ในโปรเจกต์นี้ไม่ต้องใช้ JSON key
+9. เก็บ URL นี้ไว้เป็น `APPS_SCRIPT_URL`
 
-## ขั้นที่ 4: สร้างเว็บไซต์บน Vercel
+**สำคัญ:** เลือก Anyone หมายถึง URL ของ API เปิดให้เข้าถึงจากอินเทอร์เน็ตได้ แต่คำสั่งข้อมูลต้องผ่าน Session token และคำสั่ง setup ต้องผ่าน Setup Key โค้ดที่ให้มามีการตรวจสิทธิ์ Admin/Staff ฝั่ง Apps Script แล้ว อย่าเผยแพร่ Setup Key และเปลี่ยนรหัสผ่านตัวอย่างทันทีหลังเริ่มระบบ
 
-1. เปิด [Vercel](https://vercel.com) แล้วเลือก **Continue with GitHub**
-2. อนุญาตให้ Vercel มองเห็น repository `ims-spare-parts-vercel` ถ้าไม่พบ ให้กลับไปอนุญาต repository ในการตั้งค่า GitHub ของ Vercel
-3. ที่หน้า Dashboard กด **Add New… → Project** แล้วเลือก repository นี้ กด **Import**
-4. ถ้าคุณสร้าง repository โดยตรงจากโฟลเดอร์ `vercel-app` ให้ตั้ง **Root Directory** เป็น `./` หรือค่าเริ่มต้น หากเอาโฟลเดอร์นี้ไปวางไว้ใต้ repository อื่น ให้ตั้ง Root Directory เป็น `vercel-app`
-5. เลือก Framework Preset เป็น **Other** ถ้าระบบถาม ส่วน Build Command และ Output Directory ให้คงค่าเริ่มต้น/ปล่อยว่าง เพราะโปรเจกต์นี้ใช้ไฟล์หน้าเว็บธรรมดากับ Vercel Functions ใน `api/` ไม่ได้ใช้ React build
-6. **ยังไม่ต้องกด Deploy** ให้เปิดส่วน **Environment Variables** ก่อน
+ถ้า Google Workspace ขององค์กรไม่มีตัวเลือก Anyone หรือมีข้อความว่าไม่อนุญาตให้เข้าถึงแบบสาธารณะ ให้สอบถามผู้ดูแล Workspace การตั้งเป็น “Anyone with Google account” อาจไม่ทำงานกับ Vercel proxy ที่ไม่ได้เข้าสู่ระบบ Google
 
-Vercel สร้างฟังก์ชัน Node.js จากไฟล์ใน `api/` และติดตั้งแพ็กเกจที่ระบุไว้ใน `package.json` ให้ในขั้น Deploy [4]
+## ส่วนที่ 5 — ตั้งค่า Vercel Frontend
 
-## ขั้นที่ 5: ใส่ค่าลับใน Vercel
+1. ใช้ GitHub Desktop สร้าง repository จากโฟลเดอร์ `vercel-app` และตั้งเป็น **Private**
+2. ตรวจว่าใน repository มี `index.html`, โฟลเดอร์ `api/ims.js`, `package.json` และ `setup.html`
+3. อย่า Commit `.env` ที่มีค่าจริง หากมีไฟล์ `.env` ในเครื่อง ให้ตรวจว่า `.gitignore` กันไว้
+4. ใน Vercel คลิก **Add New → Project** แล้ว Import repository
+5. ถ้า repository root คือโฟลเดอร์ `vercel-app` ให้ใช้ Root Directory `./`
+6. เลือก Framework preset **Other** หากถาม แล้วปล่อย Build Command/Output Directory ว่าง
+7. ก่อน Deploy ให้เพิ่ม Environment Variable:
 
-เพิ่มตัวแปรต่อไปนี้ในหน้าตั้งค่า Environment Variables ของ Project (รายละเอียดที่มาของแต่ละค่าอยู่ในคู่มือ OIDC):
+   - **Name:** `APPS_SCRIPT_URL`
+   - **Value:** วาง Web app URL ที่คัดลอกไว้จากขั้นที่ 4 ให้ครบและลงท้าย `/exec`
 
-- `SPREADSHEET_ID` — รหัสชีตที่คัดลอกไว้ในขั้นที่ 1
-- `GCP_PROJECT_NUMBER` — หมายเลขโปรเจกต์ Google Cloud
-- `GCP_WORKLOAD_IDENTITY_POOL_ID` — Pool ID
-- `GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID` — Provider ID
-- `GCP_SERVICE_ACCOUNT_EMAIL` — อีเมล Service Account ที่แชร์ให้ Google Sheet
-- `GCP_AUDIENCE` — Audience URI ที่คัดลอกจาก OIDC Provider ใน Google Cloud
-- `SESSION_SECRET` — สุ่มข้อความยาวอย่างน้อย 32 ตัวอักษร ใช้เป็นกุญแจลงลายเซ็น Session ห้ามใช้รหัสผ่านเดียวกับบัญชีอื่น
-- `SETUP_KEY` — ตั้งข้อความลับอีกชุดหนึ่ง ใช้เฉพาะตอนเริ่มสร้างชีต อย่าใช้ค่าเดียวกับ `SESSION_SECRET`
+8. เลือก Environment อย่างน้อย **Production**
+9. กด Deploy และรอจนเสร็จ
 
-เลือก Environment เป็น **Production, Preview และ Development** ถ้าหน้าจอมีตัวเลือกนี้ แล้วกด Save ทุกตัวแปร ค่า Environment Variable ถูกเก็บแยกจากโค้ด แต่การเปลี่ยนค่าจะมีผลกับ Deployment ใหม่ ดังนั้นหลังแก้ค่าให้กด Redeploy [5]
+Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Script Web App URL และส่งเฉพาะรายการ API ที่กำหนดไว้ไปยัง Backend
 
-**ห้ามใส่**`SESSION_SECRET` และ `SETUP_KEY` ในหน้าเว็บหรือ GitHub และอย่าเก็บ Service Account JSON key ไว้ในโปรเจกต์ วิธี OIDC ใช้ค่าระบุ Provider ใน Environment Variables และ Vercel จะใช้ OIDC token อายุสั้นเมื่อ API ทำงาน [5]
+## ส่วนที่ 6 — สร้างแท็บชีตครั้งแรก
 
-## ขั้นที่ 6: Deploy ครั้งแรก
+1. เปิด URL ของ Vercel เช่น `https://ims-example.vercel.app`
+2. เติม `/setup.html` ต่อท้าย URL
+3. กรอก Setup Key ที่ตั้งไว้ใน Script Properties (`IMS_SETUP_KEY`)
+4. กดปุ่มสร้างชีตและรอข้อความสำเร็จ
+5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Transactions`, `Audit_Logs`
+6. เข้า URL หน้าแรกของ Vercel แล้วล็อกอินด้วย `admin` / `1234`
+7. เปลี่ยนรหัสเริ่มต้นก่อนใช้งานจริง โดยแก้ Password ของบัญชีในแท็บ Users แล้วล็อกอินด้วยรหัสใหม่หนึ่งครั้ง
+8. เมื่อตรวจระบบเรียบร้อย ให้ลบ `setup.html` ออกจาก repository แล้ว Commit/Push เวอร์ชันใหม่
 
-หลังเพิ่ม Environment Variables ครบแล้ว ให้กด **Deploy** และรอจนสถานะสำเร็จ เมื่อเสร็จ Vercel จะแสดง URL เช่น `https://ชื่อโปรเจกต์.vercel.app` เปิด URL นี้ในแท็บใหม่
+อย่าเปิดเผย Setup Key ให้ผู้ใช้ทั่วไป แม้ลบหน้า Setup แล้ว Endpoint ก็ยังมี แต่การสร้างชีตจะต้องส่ง key ถูกต้อง
 
-## ขั้นที่ 7: สร้างแท็บชีตเริ่มต้น
+## วิธีอัปเดต Apps Script หลังแก้โค้ด
 
-1. นำ URL ของเว็บไซต์มาต่อท้าย `/setup.html` เช่น `https://ชื่อโปรเจกต์.vercel.app/setup.html`
-2. พิมพ์ค่า `SETUP_KEY` ที่ตั้งไว้ใน Vercel ลงในช่อง แล้วกดปุ่มสร้างชีต
-3. ถ้าสำเร็จ จะเห็นข้อความว่าระบบสร้าง `Users`, `Parts_Inventory`, `Transactions` และ `Audit_Logs` แล้ว
-4. กลับไปหน้าแรกของเว็บไซต์ แล้วเข้าสู่ระบบด้วย `admin` / `1234` หรือ `staff` / `1234`
-5. บัญชีตัวอย่างเป็นเพียงค่าเริ่มต้น ไม่ควรปล่อยไว้ก่อนเปิดให้ทีมใช้งาน เมื่อเข้าสู่ระบบครั้งแรก รหัสผ่านเดิมจะถูกแปลงเป็นแฮชในชีตโดยอัตโนมัติ ถ้าต้องการเปลี่ยนรหัสเริ่มต้น ให้แก้ช่อง Password ของบัญชีนั้นในแท็บ Users ด้วยรหัสใหม่ แล้วเข้าสู่ระบบด้วยรหัสใหม่นั้นหนึ่งครั้ง ระบบจะแปลงค่าเป็นแฮชให้อัตโนมัติ
-6. เพื่อปิดการตั้งค่าครั้งเดียว ให้กลับไป **Vercel → Project → Settings → Environment Variables** ลบ `SETUP_KEY` แล้ว Redeploy จากนั้นลบ `setup.html` ออกจาก GitHub Desktop ทำ Commit และ Push การลบ `SETUP_KEY` ทำให้เรียก setup ซ้ำไม่ได้ แม้ยังมี URL หน้าตั้งค่าอยู่
+การกด Save ใน editor อย่างเดียวไม่ทำให้ Web App deployment version เดิมอัปเดตเสมอไป:
 
-## ขั้นที่ 8: ทดสอบระบบ
+1. แก้ `Code.gs` แล้วกด Save
+2. คลิก **Deploy → Manage deployments**
+3. คลิกไอคอนแก้ไข (ดินสอ) ของ Web App deployment ปัจจุบัน
+4. ในช่อง Version เลือก **New version**
+5. คลิก **Deploy**
+6. โดยทั่วไป URL `/exec` ของ deployment เดิมยังใช้ได้ ให้นำไปทดสอบอีกครั้ง
 
-เข้าสู่ระบบ Admin แล้วเพิ่มอะไหล่ทดลองหนึ่งรายการ ลองค้นหาและบันทึกรับเข้า จากนั้นออกจากระบบแล้วเข้าเป็น Staff ตรวจว่าราคาทุนไม่แสดง ลองเบิกออกโดยกรอกเลขที่ใบงาน และเปิดหน้า History ดูรายการ ถ้าทุกอย่างทำงาน ให้ตรวจว่าแถวใหม่ปรากฏใน Google Sheet ด้วย
+ถ้าสร้าง deployment ใหม่จนได้ URL ใหม่ อย่าลืมเปลี่ยน `APPS_SCRIPT_URL` ใน Vercel และ Redeploy Vercel ด้วย
 
-หากจะใช้กล้อง ให้เปิด URL Vercel โดยตรงใน Chrome หรือเบราว์เซอร์ แล้วกด Allow เมื่อมีหน้าต่างขอสิทธิ์กล้อง หน้าเว็บที่ถูกฝังในแผงด้านข้างอาจถูกนโยบายของกรอบปิดกั้นกล้องได้
+## ทดสอบการทำงาน
 
-## วิธีอัปเดตเว็บไซต์ภายหลัง
+- หน้าแรก Vercel แสดงฟอร์มเข้าสู่ระบบ
+- ล็อกอิน Admin ได้ และเห็นปุ่มจัดการอะไหล่/ผู้ใช้
+- เพิ่มอะไหล่ทดลอง แล้วเห็นข้อมูลในแท็บ Parts_Inventory
+- ทำรายการรับเข้า/เบิก แล้วเห็นข้อมูลใน Transactions
+- ทดสอบ Audit และดูข้อมูลใน Audit_Logs
+- ลองล็อกอิน Staff แล้วตรวจว่า Unit cost ไม่แสดง
 
-หลังแก้ไฟล์ในโฟลเดอร์ `vercel-app` ให้เปิด GitHub Desktop ตรวจรายการเปลี่ยนแปลง ใส่ข้อความ Commit แล้วกด **Commit to main** และ **Push origin** Vercel เชื่อม GitHub แล้วสร้าง Deployment ใหม่ตามการ Push [3] เมื่อ Deployment สำเร็จ เปิด URL เดิมเพื่อดูเวอร์ชันล่าสุด
+## แก้ปัญหาเบื้องต้น
 
-## ถ้ามีปัญหา ให้ไล่เช็กแบบนี้
+- **`ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL`** — เพิ่ม Environment Variable ใน Vercel แล้ว Redeploy
+- **API ตอบ HTML แทน JSON** — ตรวจว่า Apps Script deploy เป็น Web App, URL ลงท้าย `/exec`, ตั้ง access เป็น Anyone และใช้ URL ของ deployment ไม่ใช่ URL editor
+- **Apps Script ขอให้ Sign in / Permission denied** — ตรวจการตั้ง Who has access และข้อจำกัดของ Google Workspace
+- **`Setup key ไม่ถูกต้อง`** — ตรวจค่าใน Script Properties ชื่อ `IMS_SETUP_KEY` และค่าที่กรอก ต้องตรงกันทุกตัวอักษร
+- **`Missing sheet`** — เปิด `/setup.html` แล้วทำ Setup หรือสร้างแท็บ/หัวตารางตามที่ระบบกำหนด
+- **แก้ Code.gs แล้วแต่ระบบทำงานแบบเดิม** — ไป Deploy → Manage deployments → Edit → New version → Deploy
+- **Vercel Function timeout** — ตรวจ Apps Script Executions และ Google Sheet ว่ามีข้อมูลจำนวนมากหรือมีการเรียกพร้อมกันสูงหรือไม่
 
-- **ขึ้น `ยังไม่ได้ตั้งค่าตัวแปร ...`** — ตรวจว่าเพิ่ม Environment Variable สะกดตรง และ Redeploy หลังเพิ่มแล้ว
-- **ขึ้น 403 หรือ permission denied จาก Google** — แชร์ Google Sheet ให้ Service Account ด้วยสิทธิ์ Editor และตรวจว่า principal ของ Vercel ได้ Role `Workload Identity User` บนบัญชีบริการ
-- **ขึ้น `Requested entity was not found`** — ตรวจ Spreadsheet ID และตรวจว่าไฟล์ชีตถูกแชร์ให้ Service Account
-- **ขึ้น `API has not been used` หรือ `disabled`** — กลับไป Google Cloud ตรวจว่าเปิด Google Sheets API และ IAM Service Account Credentials API ในโปรเจกต์ที่ตั้งค่าไว้
-- **ขึ้น `Invalid audience` หรือ WIF exchange ล้มเหลว** — ตรวจ `GCP_AUDIENCE`, Issuer URL, Team slug, Pool ID, Provider ID และ attribute condition ตาม [คู่มือ OIDC](GOOGLE-SHEETS-SETUP-TH.md)
-- **ขึ้น `Setup key ไม่ถูกต้อง`** — ค่าในช่องต้องตรงกับ `SETUP_KEY` ใน Vercel ทุกตัวอักษร ถ้าเพิ่งเปลี่ยนตัวแปร ให้ Redeploy ก่อน
-- **เปิดเว็บได้แต่เข้าใช้งานไม่ได้** — ใน Vercel เปิดแท็บ **Deployments → deployment ล่าสุด → Functions / Logs** ดูข้อความผิดพลาด แล้วกลับมาเช็กตัวแปรที่เกี่ยวข้อง
-- **แก้ Environment Variables แล้วเว็บยังใช้ค่าเก่า** — สร้าง Deployment ใหม่ เพราะค่าใหม่ไม่ย้อนกลับไปแก้ Deployment เก่า [5]
+## ข้อควรทราบด้านความปลอดภัย
 
-## ข้อควรทราบเรื่องความปลอดภัยและข้อมูล
+Apps Script Web App ใช้ Execute as Me และ Anyone จึงมีสิทธิ์ทำงานกับชีตในนามเจ้าของบัญชี แต่ Apps Script API ตรวจ Session และ Role ก่อนคำสั่งข้อมูล ระบบนี้เหมาะกับทีมขนาดเล็ก/ปริมาณงานไม่สูง ควรเปลี่ยนรหัสตัวอย่าง จำกัดผู้ใช้ Admin สำรองชีตเป็นระยะ และอย่าแชร์ `APPS_SCRIPT_URL` พร้อม Setup Key ในพื้นที่สาธารณะ
 
-Google Sheet เก็บข้อมูลคลังและประวัติจริง ควรจำกัดการแชร์ Sheet ให้เฉพาะผู้เกี่ยวข้อง ดาวน์โหลดสำรองเป็นระยะ และเปลี่ยนรหัสตัวอย่างก่อนให้พนักงานใช้งาน รุ่นนี้แฮชรหัสผ่านผู้ใช้ใหม่ และอัปเกรดรหัสผ่านเก่าหลังล็อกอินสำเร็จ แต่ Session ในหน้าเว็บเก็บใน `localStorage` จึงควรใช้เครื่องที่เชื่อถือได้และกด Logout ทุกครั้งหลังใช้งาน
-
-Google Sheets เหมาะกับระบบเริ่มต้นหรือปริมาณงานไม่มาก แต่การทำรายการจำนวนมากพร้อมกันอาจมีข้อจำกัดด้านการชนกันของการอัปเดตและโควตา API หากระบบกลายเป็นระบบงานหลักที่มีผู้ใช้จำนวนมาก ควรย้ายฐานข้อมูลไปฐานข้อมูลธุรกรรมโดยตรง
-
-## แหล่งข้อมูลทางการ
-
-[1]: https://vercel.com/docs/oidc/gcp "Vercel OpenID Connect Federation with Google Cloud"
-[2]: https://developers.google.com/workspace/guides/create-credentials "Google Workspace credentials and service accounts"
-[3]: https://vercel.com/docs/git/vercel-for-github "Deploying GitHub projects with Vercel"
-[4]: https://vercel.com/docs/functions/runtimes/node-js "Using the Node.js Runtime with Vercel Functions"
-[5]: https://vercel.com/docs/environment-variables "Vercel environment variables"
+Apps Script Cache สำหรับ Session อาจหมดอายุก่อนเวลาที่ระบุได้ตามธรรมชาติของ Cache ทำให้ผู้ใช้อาจต้องเข้าสู่ระบบใหม่ หากมีธุรกรรมพร้อมกันจำนวนมาก Google Sheet อาจเกิดการชนกันของการปรับยอด จึงควรทดสอบด้วยข้อมูลจำลองก่อนใช้เป็นระบบคลังหลัก

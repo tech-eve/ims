@@ -1,5 +1,7 @@
 # รายงานตรวจโค้ด Vercel — IMS
 
+> **รายงานนี้ตรวจสถาปัตยกรรมรุ่นก่อน (Vercel API เชื่อม Google Sheets โดยตรงผ่าน OIDC)** ปัจจุบันเปลี่ยนเป็น Vercel frontend + Apps Script backend แล้ว โปรดใช้ README ปัจจุบันและทดสอบ end-to-end หลัง Deploy ใหม่
+
 ตรวจ `api/ims.js`, `index.html`, `setup.html` และคู่มือในโฟลเดอร์ `vercel-app` วันที่ 17 พฤศจิกายน 2026
 
 ## สรุปผล

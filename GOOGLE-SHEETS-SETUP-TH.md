@@ -1,5 +1,7 @@
 # คู่มือตั้ง Google Sheets แบบไม่ใช้ JSON Key
 
+> **เอกสารนี้เป็นของสถาปัตยกรรมเวอร์ชันก่อน** รุ่นปัจจุบันเชื่อม Google Sheet ผ่าน Google Apps Script และไม่ต้องตั้งค่า Google Cloud API, Service Account หรือ OIDC ดู [คู่มือ Vercel Frontend + Apps Script Backend](README-TH.md) แทน
+
 คู่มือนี้ใช้ **Workload Identity Federation (OIDC)** เชื่อม Vercel กับ Google Cloud โดยไม่สร้างหรือเก็บ Service Account JSON Key วิธีนี้เหมาะกับกรณีที่ Google Cloud แจ้งว่าไม่อนุญาตให้สร้าง Key และยังเป็นแนวทางที่ปลอดภัยกว่า เพราะ Vercel ขอ credential อายุสั้นเมื่อ Function ทำงาน แทนการเก็บกุญแจระยะยาว [1] [2]
 
 > **ข้อสำคัญ:** หากผู้ดูแล Google Cloud ปิดการสร้าง Service Account Key นี่เป็นนโยบายความปลอดภัย ไม่ใช่คุณตั้งค่าผิด อย่าปิดนโยบาย `iam.disableServiceAccountKeyCreation` เพื่อให้ผ่านขั้นตอนนี้ ใช้คู่มือนี้แทน
