@@ -8,6 +8,8 @@
 
 Vercel API proxy ทำให้เบราว์เซอร์เรียก API ในโดเมนเดียวกับหน้าเว็บ แล้วส่งคำขอต่อไป Apps Script จากฝั่งเซิร์ฟเวอร์ จึงหลีกเลี่ยงปัญหา CORS จากการเรียกข้ามโดเมนโดยตรง
 
+ดูรายละเอียดรูปแบบ JSON response, การแปลง error เป็น HTTP status และเหตุผลที่ไม่ต้องเปิด CORS เพิ่มได้ที่ [รายงานตรวจ CORS และ Error handling](API-RESPONSE-CORS-REVIEW-TH.md)
+
 ## สิ่งที่ต้องใช้
 
 - Google Account ที่สร้าง Google Sheet และ Google Apps Script ได้
@@ -21,7 +23,7 @@ Vercel API proxy ทำให้เบราว์เซอร์เรียก
 
 1. เปิด [Google Sheets](https://sheets.google.com) แล้วสร้างสเปรดชีตใหม่
 2. ตั้งชื่อ เช่น `IMS Spare Parts Database`
-3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Transactions` และ `Audit_Logs` ให้
+3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions` และ `Audit_Logs` ให้
 
 ## ส่วนที่ 2 — สร้าง Apps Script Backend
 
@@ -92,7 +94,7 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 2. เติม `/setup.html` ต่อท้าย URL
 3. กรอก Setup Key ที่ตั้งไว้ใน Script Properties (`IMS_SETUP_KEY`)
 4. กดปุ่มสร้างชีตและรอข้อความสำเร็จ
-5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Transactions`, `Audit_Logs`
+5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs`
 6. เข้า URL หน้าแรกของ Vercel แล้วล็อกอินด้วย `admin` / `1234`
 7. เปลี่ยนรหัสเริ่มต้นก่อนใช้งานจริง โดยแก้ Password ของบัญชีในแท็บ Users แล้วล็อกอินด้วยรหัสใหม่หนึ่งครั้ง
 8. เมื่อตรวจระบบเรียบร้อย ให้ลบ `setup.html` ออกจาก repository แล้ว Commit/Push เวอร์ชันใหม่
@@ -118,8 +120,10 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 - ล็อกอิน Admin ได้ และเห็นปุ่มจัดการอะไหล่/ผู้ใช้
 - เพิ่มอะไหล่ทดลอง แล้วเห็นข้อมูลในแท็บ Parts_Inventory
 - ทำรายการรับเข้า/เบิก แล้วเห็นข้อมูลใน Transactions
-- ทดสอบ Audit และดูข้อมูลใน Audit_Logs
+- ทดสอบ Audit และดูข้อมูลใน `Audit_Logs`
+- ตรวจแท็บ `Parts_Price` ว่ามีรหัสอะไหล่และราคา โดย `Part_Code` ใช้เชื่อมกับ `Part_No` ใน `Parts_Inventory`
 - ลองล็อกอิน Staff แล้วตรวจว่า Unit cost ไม่แสดง
+- บัญชี Staff เปิด Stock Audit ได้: กด **สแกน +1 ชิ้น** แล้วกล้องจะอ่าน QR หนึ่งครั้งและปิดเอง ระบบเพิ่มยอดนับของ Part code นั้น 1 ชิ้น พร้อมแสดงรหัส ชื่อ จำนวนที่นับ และเทียบกับยอดระบบอย่างเด่นชัด; ถ้ามีชิ้นเดิมเพิ่ม ให้กดปุ่มสแกนอีกครั้งแล้วสแกน QR เดิม จำนวนจะเพิ่มเป็น 2 ชิ้น เป็นต้น เมื่อครบแล้วกด Save ระบบแสดง popup ผลนับและกลับหน้า Audit สำหรับรายการต่อไป Dashboard แสดงยอดตรง/ผลต่าง ส่วนตารางรายละเอียดซ่อนไว้จนกด Detail
 
 ## แก้ปัญหาเบื้องต้น
 
