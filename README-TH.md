@@ -23,7 +23,7 @@ Vercel API proxy ทำให้เบราว์เซอร์เรียก
 
 1. เปิด [Google Sheets](https://sheets.google.com) แล้วสร้างสเปรดชีตใหม่
 2. ตั้งชื่อ เช่น `IMS Spare Parts Database`
-3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions` และ `Audit_Logs` ให้
+3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs` และ `Stock-Audit` ให้ โดยประวัติ Stock Audit ใหม่จะบันทึกใน `Stock-Audit`
 
 ## ส่วนที่ 2 — สร้าง Apps Script Backend
 
@@ -94,7 +94,7 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 2. เติม `/setup.html` ต่อท้าย URL
 3. กรอก Setup Key ที่ตั้งไว้ใน Script Properties (`IMS_SETUP_KEY`)
 4. กดปุ่มสร้างชีตและรอข้อความสำเร็จ
-5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs`
+5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs`, `Stock-Audit`; Setup จะคัดลอกประวัติเก่าจาก `Audit_Logs` ไป `Stock-Audit` โดยไม่ซ้ำตาม Audit_ID
 6. เข้า URL หน้าแรกของ Vercel แล้วล็อกอินด้วย `admin` / `1234`
 7. เปลี่ยนรหัสเริ่มต้นก่อนใช้งานจริง โดยแก้ Password ของบัญชีในแท็บ Users แล้วล็อกอินด้วยรหัสใหม่หนึ่งครั้ง
 8. เมื่อตรวจระบบเรียบร้อย ให้ลบ `setup.html` ออกจาก repository แล้ว Commit/Push เวอร์ชันใหม่
@@ -114,16 +114,25 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 
 ถ้าสร้าง deployment ใหม่จนได้ URL ใหม่ อย่าลืมเปลี่ยน `APPS_SCRIPT_URL` ใน Vercel และ Redeploy Vercel ด้วย
 
+### อัปเดตระบบที่ใช้อยู่ให้มี `Stock-Audit`
+
+1. วางโค้ด `apps-script/Code.gs` รุ่นใหม่ใน Apps Script แล้ว Deploy เป็น **New version** ตามขั้นตอนข้างบน
+2. Push ไฟล์หน้าเว็บและ API รุ่นใหม่จาก `vercel-app` ขึ้น GitHub เพื่อให้ Vercel Deploy
+3. ให้แน่ใจว่า `setup.html` มีอยู่ใน deployment ชั่วคราว แล้วเปิด `https://โดเมนของคุณ/setup.html` กรอก Setup Key และกดสร้างชีตอีกครั้ง
+4. ตรวจ Google Sheet ว่ามีแท็บ `Stock-Audit` และมีประวัติเก่าคัดลอกจาก `Audit_Logs` แล้ว (ระบบใช้ `Audit_ID` ป้องกันการคัดลอกซ้ำ)
+5. ทดสอบบันทึกนับหนึ่งรายการและ Export CSV จากหน้า Stock Audit; จากนั้นนำ `setup.html` ออกจาก GitHub อีกครั้งเพื่อไม่เปิดหน้า setup ไว้โดยไม่จำเป็น
+
 ## ทดสอบการทำงาน
 
 - หน้าแรก Vercel แสดงฟอร์มเข้าสู่ระบบ
 - ล็อกอิน Admin ได้ และเห็นปุ่มจัดการอะไหล่/ผู้ใช้
 - เพิ่มอะไหล่ทดลอง แล้วเห็นข้อมูลในแท็บ Parts_Inventory
 - ทำรายการรับเข้า/เบิก แล้วเห็นข้อมูลใน Transactions
-- ทดสอบ Audit และดูข้อมูลใน `Audit_Logs`
-- ตรวจแท็บ `Parts_Price` ว่ามีรหัสอะไหล่และราคา โดย `Part_Code` ใช้เชื่อมกับ `Part_No` ใน `Parts_Inventory`
+- ทดสอบ Stock Audit แล้วกดบันทึก ตรวจรายการใหม่ในชีต `Stock-Audit`; กด **Export Stock-Audit** เพื่อดาวน์โหลด CSV ได้จากหน้าเว็บ
+- ตรวจแท็บ `Parts_Price` ว่ามีรหัสอะไหล่และราคา โดย `Part_Code` เชื่อมกับ `Part_No` ใน `Parts_Inventory` แบบไม่สนตัวพิมพ์เล็ก/ใหญ่และตัดช่องว่างหัวท้าย; หน้า Parts Inventory ของ Admin แสดงสถานะ Price match หากไม่พบ ระบบจะไม่ใช้ราคาค้างจาก Inventory และให้แก้รหัส/ราคาในชีต `Parts_Price` ราคาที่ขาดหรือไม่ใช่ THB จะไม่รวมในยอด Stock value (THB)
 - ลองล็อกอิน Staff แล้วตรวจว่า Unit cost ไม่แสดง
-- บัญชี Staff เปิด Stock Audit ได้: กด **สแกน +1 ชิ้น** แล้วกล้องจะอ่าน QR หนึ่งครั้งและปิดเอง ระบบเพิ่มยอดนับของ Part code นั้น 1 ชิ้น พร้อมแสดงรหัส ชื่อ จำนวนที่นับ และเทียบกับยอดระบบอย่างเด่นชัด; ถ้ามีชิ้นเดิมเพิ่ม ให้กดปุ่มสแกนอีกครั้งแล้วสแกน QR เดิม จำนวนจะเพิ่มเป็น 2 ชิ้น เป็นต้น เมื่อครบแล้วกด Save ระบบแสดง popup ผลนับและกลับหน้า Audit สำหรับรายการต่อไป Dashboard แสดงยอดตรง/ผลต่าง ส่วนตารางรายละเอียดซ่อนไว้จนกด Detail
+- บัญชี Staff เปิด Stock Audit บนมือถือได้: กด **สแกน +1 ชิ้น** กล้องอ่านหนึ่งครั้งแล้วปิดเอง ระบบแสดงรหัส ชื่อ จำนวนที่นับ และสต็อกระบบบนการ์ดขนาดแตะง่าย; หากมีอีกชิ้นให้เปิดกล้องและสแกน QR เดิมอีกครั้ง จากนั้นกด **บันทึกผลนับ** เพื่อบันทึกลง `Stock-Audit` และดู popup ผลนับ
+- Admin เห็นปุ่ม **Data cleanup** บน Dashboard เลือกตรวจ/ลบประวัติ Stock-Audit, ประวัติธุรกรรม หรืออะไหล่จาก Inventory ได้ทีละรายการ ต้องยืนยันก่อนลบ; การลบ transaction history ไม่ได้ปรับย้อนยอดสต็อก ส่วนการลบ Part จะลบแถวที่เกี่ยวข้องใน `Parts_Price` ด้วย
 
 ## แก้ปัญหาเบื้องต้น
 

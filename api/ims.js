@@ -1,10 +1,14 @@
 const allowedActions = new Set([
   'login', 'getAppData', 'logout', 'savePart', 'updatePart', 'deletePart',
   'transact', 'saveAudit', 'adjustStock', 'getUsers', 'listUsers',
-  'saveUser', 'deleteUser', 'getCsvData', 'setupSheets'
+  'saveUser', 'deleteUser', 'getCsvData', 'getAuditCsvData', 'getAdminRecords',
+  'deleteTransactionRecord', 'deleteAuditRecord', 'setupSheets'
 ]);
 
 export default async function handler(req, res) {
+  // Browser traffic is same-origin to Vercel; Apps Script is called server-to-server.
+  // Therefore do not add permissive CORS headers to either endpoint.
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'ใช้ POST เท่านั้น' });
@@ -40,8 +44,16 @@ export default async function handler(req, res) {
 
     if (!payload || payload.ok !== true) {
       const message = String(payload?.error || 'Apps Script ทำรายการไม่สำเร็จ');
-      const status = /session|sign in|เข้าสู่ระบบ|สิทธิ์|admin permission/i.test(message) ? 401 : 400;
+      const status = /admin permission|required admin|ต้องใช้สิทธิ์ admin/i.test(message)
+        ? 403
+        : /session|sign in|เข้าสู่ระบบ|setup key|setup key ไม่ถูกต้อง/i.test(message)
+          ? 401
+          : 400;
       return res.status(status).json({ error: message });
+    }
+    if (!Object.prototype.hasOwnProperty.call(payload, 'data')) {
+      console.error('Apps Script returned success without a data field');
+      return res.status(502).json({ error: 'Apps Script ตอบกลับไม่ครบรูปแบบ กรุณาตรวจเวอร์ชันที่ Deploy' });
     }
     return res.status(200).json(payload.data);
   } catch (error) {
