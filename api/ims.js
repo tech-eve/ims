@@ -1,6 +1,6 @@
 const allowedActions = new Set([
   'login', 'getAppData', 'logout', 'savePart', 'updatePart', 'deletePart',
-  'transact', 'saveAudit', 'adjustStock', 'getUsers', 'listUsers',
+  'transact', 'saveAudit', 'saveAuditBatch', 'adjustStock', 'getUsers', 'listUsers',
   'saveUser', 'deleteUser', 'getCsvData', 'getAuditCsvData', 'getAdminRecords',
   'deleteTransactionRecord', 'deleteAuditRecord', 'setupSheets'
 ]);
