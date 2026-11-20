@@ -23,7 +23,7 @@ Vercel API proxy ทำให้เบราว์เซอร์เรียก
 
 1. เปิด [Google Sheets](https://sheets.google.com) แล้วสร้างสเปรดชีตใหม่
 2. ตั้งชื่อ เช่น `IMS Spare Parts Database`
-3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs` และ `Stock-Audit` ให้ โดยประวัติ Stock Audit ใหม่จะบันทึกใน `Stock-Audit`
+3. ยังไม่ต้องสร้างแท็บเอง ระบบ Setup จะสร้าง `Users`, `Warehouses` และแท็บข้อมูลของคลังหลัก `MAIN` ได้แก่ `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs` และ `Stock-Audit` ให้ โดยประวัติ Stock Audit ใหม่จะบันทึกใน `Stock-Audit`
 
 ## ส่วนที่ 2 — สร้าง Apps Script Backend
 
@@ -94,12 +94,28 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 2. เติม `/setup.html` ต่อท้าย URL
 3. กรอก Setup Key ที่ตั้งไว้ใน Script Properties (`IMS_SETUP_KEY`)
 4. กดปุ่มสร้างชีตและรอข้อความสำเร็จ
-5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs`, `Stock-Audit`; Setup จะคัดลอกประวัติเก่าจาก `Audit_Logs` ไป `Stock-Audit` โดยไม่ซ้ำตาม Audit_ID
+5. กลับไป Google Sheet ตรวจว่ามีแท็บ `Users`, `Warehouses`, `Parts_Inventory`, `Parts_Price`, `Transactions`, `Audit_Logs`, `Stock-Audit`; ใน `Warehouses` จะมีแถวเริ่มต้น `MAIN / คลังหลัก / TRUE` และ Setup จะคัดลอกประวัติเก่าจาก `Audit_Logs` ไป `Stock-Audit` โดยไม่ซ้ำตาม Audit_ID
 6. เข้า URL หน้าแรกของ Vercel แล้วล็อกอินด้วย `admin` / `1234`
 7. เปลี่ยนรหัสเริ่มต้นก่อนใช้งานจริง โดยแก้ Password ของบัญชีในแท็บ Users แล้วล็อกอินด้วยรหัสใหม่หนึ่งครั้ง
 8. เมื่อตรวจระบบเรียบร้อย ให้ลบ `setup.html` ออกจาก repository แล้ว Commit/Push เวอร์ชันใหม่
 
 อย่าเปิดเผย Setup Key ให้ผู้ใช้ทั่วไป แม้ลบหน้า Setup แล้ว Endpoint ก็ยังมี แต่การสร้างชีตจะต้องส่ง key ถูกต้อง
+
+## ระบบหลายคลังสินค้า
+
+ระบบใช้ **Google Spreadsheet ไฟล์เดิมหนึ่งไฟล์ แต่แยกเป็นแท็บ (sheet tabs) คนละชุดต่อคลัง** ไม่ได้สร้าง Google Spreadsheet คนละไฟล์ ข้อมูลเดิมในแท็บชื่อมาตรฐานจะถือเป็นคลังหลัก `MAIN` เพื่อรักษาข้อมูลเดิมไว้
+
+หลัง Login ครั้งแรก ระบบแสดงหน้าต่างให้เลือกคลังก่อนเปิด Dashboard ทุกการดู/เพิ่ม/แก้/ลบอะไหล่, ราคา, รับเข้า/เบิก, Stock Audit, Dashboard, ประวัติ และ Export จะใช้เฉพาะคลังที่เลือกใน session นั้น ปุ่ม **เปลี่ยนคลัง** อยู่แถบบน หากมี Scan Queue ที่ยังไม่บันทึก ระบบเตือนก่อนทิ้งคิวและเปลี่ยนคลัง
+
+Admin เพิ่มคลังใหม่จาก **Dashboard → Manage warehouses → เพิ่มคลัง**:
+
+1. กรอก Warehouse code ภาษาอังกฤษตัวพิมพ์ใหญ่ 2–12 ตัว ใช้ `A-Z`, `0-9` หรือ `_` เช่น `BKK`; ห้ามใช้ `MAIN`
+2. กรอกชื่อที่ต้องการให้ผู้ใช้เห็น เช่น `คลังกรุงเทพ` แล้วกดสร้าง
+3. ระบบสร้างแท็บ 5 รายการให้ เช่นคลัง `BKK` จะได้ `WH_BKK_Parts_Inventory`, `WH_BKK_Parts_Price`, `WH_BKK_Transactions`, `WH_BKK_Audit_Logs` และ `WH_BKK_Stock-Audit`
+4. ระบบเพิ่มคลังลงทะเบียนในแท็บกลาง `Warehouses` และแสดงในหน้าต่างเลือกคลัง
+5. ชุดข้อมูลคลังใหม่เริ่มว่าง Admin ต้องเพิ่มรายการอะไหล่และราคาในคลังนั้นเอง ข้อมูลจาก `MAIN` จะไม่ถูกคัดลอกหรือรวมอัตโนมัติ
+
+ผู้ใช้ทุกบัญชีที่ Login ได้สามารถเลือกคลังที่มี `Is_Active = TRUE` ได้ ส่วนการสร้างคลังทำได้เฉพาะ Admin; หากต้องการปิดคลังชั่วคราว ให้ Admin ตั้ง `Is_Active` เป็น `FALSE` ในแท็บ `Warehouses` (ข้อมูลไม่ถูกลบ)
 
 ## วิธีอัปเดต Apps Script หลังแก้โค้ด
 
@@ -114,21 +130,23 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 
 ถ้าสร้าง deployment ใหม่จนได้ URL ใหม่ อย่าลืมเปลี่ยน `APPS_SCRIPT_URL` ใน Vercel และ Redeploy Vercel ด้วย
 
-### อัปเดตระบบที่ใช้อยู่ให้มี `Stock-Audit`
+### อัปเดตระบบเดิมเป็นรุ่นหลายคลัง
 
 1. วางโค้ด `apps-script/Code.gs` รุ่นใหม่ใน Apps Script แล้ว Deploy เป็น **New version** ตามขั้นตอนข้างบน
-2. Push ไฟล์หน้าเว็บและ API รุ่นใหม่จาก `vercel-app` ขึ้น GitHub เพื่อให้ Vercel Deploy
-3. ให้แน่ใจว่า `setup.html` มีอยู่ใน deployment ชั่วคราว แล้วเปิด `https://โดเมนของคุณ/setup.html` กรอก Setup Key และกดสร้างชีตอีกครั้ง
-4. ตรวจ Google Sheet ว่ามีแท็บ `Stock-Audit` และมีประวัติเก่าคัดลอกจาก `Audit_Logs` แล้ว (ระบบใช้ `Audit_ID` ป้องกันการคัดลอกซ้ำ)
-5. ทดสอบบันทึกนับหนึ่งรายการและ Export CSV จากหน้า Stock Audit; จากนั้นนำ `setup.html` ออกจาก GitHub อีกครั้งเพื่อไม่เปิดหน้า setup ไว้โดยไม่จำเป็น
+2. Push ไฟล์หน้าเว็บและ API รุ่นใหม่จาก `vercel-app` ขึ้น GitHub แล้วรอให้ Vercel Deploy สำเร็จ
+3. ให้แน่ใจว่า `setup.html` อยู่ใน deployment ชั่วคราว แล้วเปิด `https://โดเมนของคุณ/setup.html` กรอก Setup Key และกดสร้างชีต **หนึ่งครั้ง**
+4. ระบบจะเพิ่ม `Warehouses` และลงทะเบียนแท็บเดิมเป็นคลัง `MAIN`; ตรวจว่าข้อมูลเดิมยังอยู่ในแท็บชื่อมาตรฐานและมีแถว `MAIN / คลังหลัก / TRUE`
+5. ทดสอบ Login, เลือก `คลังหลัก`, บันทึก Stock Audit และ Export; จากนั้นนำ `setup.html` ออกจาก GitHub อีกครั้งและ Push เพื่อปิดหน้า setup
 
 ## ทดสอบการทำงาน
 
 - หน้าแรก Vercel แสดงฟอร์มเข้าสู่ระบบ
-- ล็อกอิน Admin ได้ และเห็นปุ่มจัดการอะไหล่/ผู้ใช้
+- ล็อกอิน Admin ได้ และเห็นปุ่มจัดการอะไหล่/ผู้ใช้/คลังสินค้า
+- หลัง Login เลือก `คลังหลัก (MAIN)` แล้วข้อมูลเดิมยังปรากฏ; Admin เพิ่มคลังทดลอง เช่น `BKK` แล้วตรวจแท็บ `WH_BKK_*` ทั้ง 5 ชื่อแยกจากแท็บเดิม
+- เลือก `BKK` แล้วเพิ่ม Part/ราคา ทดสอบรับเข้า/เบิก/Stock Audit; ตรวจว่าบันทึกอยู่เฉพาะแท็บ `WH_BKK_*`; สลับกลับ `MAIN` แล้วตรวจว่า Dashboard, Inventory, Transaction และ Audit ของ MAIN ไม่เปลี่ยน
 - เพิ่มอะไหล่ทดลอง แล้วเห็นข้อมูลในแท็บ Parts_Inventory
 - ทำรายการรับเข้า/เบิก แล้วเห็นข้อมูลใน Transactions
-- ทดสอบ Stock Audit แล้วกดบันทึก ตรวจรายการใหม่ในชีต `Stock-Audit`; กด **Export Stock-Audit** เพื่อดาวน์โหลด CSV ได้จากหน้าเว็บ
+- ทดสอบ Stock Audit แล้วกดบันทึก ตรวจรายการใหม่ในชีต `Stock-Audit` ของคลังที่เลือก; กด **Export Stock-Audit** เพื่อดาวน์โหลด CSV โดยชื่อไฟล์มี Warehouse code เช่น `stock-audit-BKK.csv`
 - ตรวจแท็บ `Parts_Price` ว่ามีรหัสอะไหล่และราคา โดย `Part_Code` เชื่อมกับ `Part_No` ใน `Parts_Inventory` แบบไม่สนตัวพิมพ์เล็ก/ใหญ่และตัดช่องว่างหัวท้าย; หน้า Parts Inventory ของ Admin แสดงสถานะ Price match หากไม่พบ ระบบจะไม่ใช้ราคาค้างจาก Inventory และให้แก้รหัส/ราคาในชีต `Parts_Price` ราคาที่ขาดหรือไม่ใช่ THB จะไม่รวมในยอด Stock value (THB)
 - ลองล็อกอิน Staff แล้วตรวจว่า Unit cost ไม่แสดง
 - บัญชี Staff เปิด Stock Audit บนมือถือได้: กด **เปิดกล้องสแกน** ครั้งเดียว กล้องจะค้างไว้ให้ไล่ยิงบาร์โค้ด/QR ต่อเนื่อง แต่ละรหัสที่พบในระบบเพิ่มจำนวน 1 ชิ้นและรวมรหัสซ้ำเป็นยอดเดียว มีแถบแจ้งเตือนสีเขียวด้านบนและคิวสรุปใต้ภาพกล้อง; หากยิง 100 Part จะรออยู่ในรายการ 100 Part (รหัสเดิมที่ยิงซ้ำจะเพิ่มจำนวนในแถวเดียว) เมื่อเสร็จให้กด **Close** ปิดกล้อง ตรวจ/ลบรายการผิด แล้วกด **ยืนยันและบันทึกทั้งหมด** ครั้งเดียว ระบบจึงบันทึกชุดเดียวลง `Stock-Audit`
@@ -145,7 +163,7 @@ Vercel proxy ตรวจรูปแบบ URL ให้เป็น Apps Scrip
 - **API ตอบ HTML แทน JSON** — ตรวจว่า Apps Script deploy เป็น Web App, URL ลงท้าย `/exec`, ตั้ง access เป็น Anyone และใช้ URL ของ deployment ไม่ใช่ URL editor
 - **Apps Script ขอให้ Sign in / Permission denied** — ตรวจการตั้ง Who has access และข้อจำกัดของ Google Workspace
 - **`Setup key ไม่ถูกต้อง`** — ตรวจค่าใน Script Properties ชื่อ `IMS_SETUP_KEY` และค่าที่กรอก ต้องตรงกันทุกตัวอักษร
-- **`Missing sheet`** — เปิด `/setup.html` แล้วทำ Setup หรือสร้างแท็บ/หัวตารางตามที่ระบบกำหนด
+- **`Missing sheet`** — เปิด `/setup.html` แล้วทำ Setup; หากเป็นคลังใหม่ ให้ใช้ Admin → Manage warehouses สร้างแท็บก่อน หรือเช็กว่าชื่อแท็บ/หัวตารางตรงกับ Warehouse code
 - **แก้ Code.gs แล้วแต่ระบบทำงานแบบเดิม** — ไป Deploy → Manage deployments → Edit → New version → Deploy
 - **Vercel Function timeout** — ตรวจ Apps Script Executions และ Google Sheet ว่ามีข้อมูลจำนวนมากหรือมีการเรียกพร้อมกันสูงหรือไม่
 
